@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "headers/BRO_spam_fists.h"
 #include "headers/BRO_spam_client.h"
-
+#include <stdbool.h>
 /*--------------------------------------------------------------------------*/
 /* OSEK declarations                                                        */
 /*--------------------------------------------------------------------------*/
@@ -13,10 +13,17 @@ DeclareTask(DisplayTask);
 
 engines_t engines;
 U8 flag = 1;
-typedef struct smam_data {
-	S16 rev_count; 
-    U32 time_stamp;
+U32 time_rec;
+/*typedef struct spam_data {
+	float rev_count[10]; 
+    float time_stamp[10];
 }spam_data;
+
+typedef struct outdata {
+    //uint8_t buffsize;
+    spam_data packets;
+}outdata; */
+
 
 #if 0
 engines_t spam_motor_start() {
@@ -132,19 +139,10 @@ TASK(PID_Controller)
 
 TASK(BRO_Comm)
 {
-    U32 connect_status = 0;
-    
-    /*  Declaring two buffers for communication */
-    //bro_fist_t in_packet[BUFFER_SIZE];
-    //bro_fist_t out_packet[BUFFER_SIZE];
-    
-    //memset (in_packet, 0, sizeof(bro_fist_t) * BUFFER_SIZE);
-    //memset (out_packet, 0, sizeof(bro_fist_t) * BUFFER_SIZE);
-    //U8 out_packet[2]; 
+    U32 connect_status = 0; 
     U8 in_packet[2];
     memset(in_packet, 0, 2); 
-    //memset(out_packet, 0, 2);
-
+    uint16_t out_packet[20];
     /*  As you might know we have a problem here... :3
      *  That problem is that the BT device installed on the AT91SAM7 seems to
      *  have some speed problems with the receiving for the first data via BT.
@@ -162,45 +160,29 @@ TASK(BRO_Comm)
     
     connect_status = ecrobot_read_bt_packet(in_packet, 2);
     connect_status = ecrobot_read_bt_packet(in_packet, 2);
-    nxt_motor_set_speed(NXT_PORT_B, 20, 1);
-    //if(in_packet[0] == 64)
-    //	flag += 64;
-    //flag = (U8) (*(U8*)(&in_packet[1]));
+    nxt_motor_set_speed(NXT_PORT_B, 40, 1);
+    uint16_t j = 0;
+    bool delay_flag = 1;
+    time_rec = systick_get_ms();
     while(1){
-    spam_data out_packet[10];
-    memset(out_packet, 0, sizeof(spam_data)*10);
+    memset((void *)&out_packet, 0, sizeof(uint16_t)*20);
     U8 i; 
+    
+    if(delay_flag){
+    	systick_wait_ms(1);
+        delay_flag = !delay_flag;
+    }
     for(i=0; i< 10; i++){
-    //out_packet[i].rev_count = (S16) nxt_motor_get_count(NXT_PORT_B);
-    out_packet[i].rev_count = 0xffffff;
-    //out_packet[i].time_stamp = (U32) systick_get_ms();
-    out_packet[i].time_stamp =  ecrobot_get_motor_rev(NXT_PORT_B);
-    systick_wait_ms(5);
+    out_packet[2*i] = nxt_motor_get_count(NXT_PORT_B); 
+    out_packet[(2*i)+1] = (uint16_t)(systick_get_ms() - time_rec);
+    time_rec = systick_get_ms();
+    systick_wait_ms(1);
     }
     ecrobot_status_monitor("Sent data");
-    ecrobot_send_bt_packet((U8 *)out_packet, sizeof(spam_data)*10);
-    //flag++;
-    //ecrobot_status_monitor("Sent data");
-    //bt_send(out_packet, 2);
-    //ecrobot_status_monitor("Sent data");
-    //bt_send(out_packet, 2);
-    //ecrobot_status_monitor("Sent data");
+    ecrobot_send_bt_packet((U8 *)&out_packet, sizeof(uint16_t)*20);
     if (connect_status == -1)
     	ecrobot_status_monitor("Failed to receive");
     }
-    // Se sono arrivati dei dati...
-    /*if (connect_status > 0) {
-        // Decodifica ed elabora i pacchetti ricevuti
-        //decode_bro_fists (in_packet, out_packet, &engines);
-        // Invia la risposta
-    ecrobot_status_monitor("Before send");
-        //out_packet[0] = 255;
-        //out_packet[1] = 255;
-        //out_packet[0] = in_packet[0] ;
-        //out_packet[1] = 0x43;
-        //ecrobot_send_bt_packet(out_packet, 2);
-    ecrobot_status_monitor("Sent data");
-    }*/
 
     TerminateTask();
 }
